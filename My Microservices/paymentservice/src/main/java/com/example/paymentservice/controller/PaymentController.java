@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/payments")
 public class PaymentController {
@@ -19,9 +21,10 @@ public class PaymentController {
     }
 
     @GetMapping
-    public ResponseEntity<String> getPayment()
+    public ResponseEntity<List<Payment>> getPayment()
     {
-        return ResponseEntity.ok("Payment service is working!");
+        List<Payment> payments = paymentService.fetchAllPayments();
+        return ResponseEntity.ok(payments);
     }
 
     @PostMapping("/create")

@@ -8,6 +8,7 @@ import com.example.paymentservice.request.PaymentCreateRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +41,11 @@ public class PaymentServiceImpl implements PaymentService
     @Override
     public Optional<Payment> fetchPaymentById(Integer paymentId) {
         return paymentRepository.findById(paymentId);
+    }
+
+    @Override
+    public List<Payment> fetchAllPayments() {
+        return paymentRepository.findAll();
     }
 
     private Payment convertToEntity(PaymentCreateRequest paymentCreateRequest) {
