@@ -13,4 +13,8 @@ public interface PaymentService {
     Optional<Payment> fetchPaymentById(Integer paymentId);
 
     List<Payment> fetchAllPayments();
+
+    Payment getPaymentById(Integer id);
+
+    Payment updatePayment(Integer id, PaymentCreateRequest request);
 }

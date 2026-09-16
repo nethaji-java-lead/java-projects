@@ -6,6 +6,8 @@ import com.example.paymentservice.producer.PaymentEventProducer;
 import com.example.paymentservice.repository.PaymentRepository;
 import com.example.paymentservice.request.PaymentCreateRequest;
 import org.springframework.beans.BeanUtils;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,11 +32,11 @@ public class PaymentServiceImpl implements PaymentService
         payment =  paymentRepository.save(payment);
 
         // Publish the payment created event
-        PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(UUID.randomUUID().toString(),
-                payment.getId(),
-                payment.getName(), payment.getEmail(),
-                payment.getAddress(), payment.getBillValue());
-        paymentEventProducer.publishPaymentCreatedEvent(paymentCreatedEvent);
+//        PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(UUID.randomUUID().toString(),
+//                payment.getId(),
+//                payment.getName(), payment.getEmail(),
+//                payment.getAddress(), payment.getBillValue());
+//        paymentEventProducer.publishPaymentCreatedEvent(paymentCreatedEvent);
         return payment;
     }
 
@@ -46,6 +48,27 @@ public class PaymentServiceImpl implements PaymentService
     @Override
     public List<Payment> fetchAllPayments() {
         return paymentRepository.findAll();
+    }
+
+    @Cacheable(value = "payments", key = "#id")
+    public Payment getPaymentById(Integer id) {
+        System.out.println("Fetching payment from database...");
+        return paymentRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Payment not found"));
+    }
+
+    @CachePut(value = "payments", key = "#id")
+    public Payment updatePayment(Integer id, PaymentCreateRequest request) {
+
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Payment not found"));
+
+        payment.setEmail("test@gmail.com");
+        // Update other fields
+
+        return paymentRepository.save(payment);
     }
 
     private Payment convertToEntity(PaymentCreateRequest paymentCreateRequest) {
