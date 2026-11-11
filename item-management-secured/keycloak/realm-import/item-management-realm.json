@@ -1,0 +1,50 @@
+{
+  "realm": "item-management",
+  "enabled": true,
+  "displayName": "Item Management (Local Development)",
+  "clients": [],
+  "roles": {
+    "realm": [
+      {
+        "name": "USER",
+        "description": "Can create and read owned items"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Can create and read all items"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "demo-user",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ChangeMe_User_123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "demo-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ChangeMe_Admin_123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ]
+    }
+  ]
+}
