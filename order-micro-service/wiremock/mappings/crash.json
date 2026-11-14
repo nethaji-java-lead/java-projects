@@ -1,0 +1,19 @@
+
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/payments/charge",
+    "headers": {
+      "X-Test-Scenario": {
+        "equalTo": "crash"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "status": "SUCCESS",
+      "transactionId": "TXN12345"
+    }
+  }
+}
