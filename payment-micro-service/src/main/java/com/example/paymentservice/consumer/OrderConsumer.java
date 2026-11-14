@@ -30,7 +30,7 @@ public class OrderConsumer {
     @Value("${payment.gateway.url:http://localhost:8089}")
     private String gatewayUrl;
 
-    @Value("${payment.demo.scenario:success}")
+    @Value("${payment.demo.scenario}")
     private String scenario;
 
     @Value("${payment.retry.max-attempts:3}")
@@ -84,12 +84,20 @@ public class OrderConsumer {
                     .retrieve()
                     .body(String.class);
 
-            assert response != null;
-            if(response.contains("SUCCESS")) {
-                log.info("Payment processed successfully for order {}", orderId);
+            if (response != null && response.contains("SUCCESS")) {
+
+                log.info("Payment gateway SUCCESS for order {}", orderId);
+
+                // Simulate service crash before database update
+                if ("crash".equalsIgnoreCase(scenario)) {
+                    log.error("SIMULATING SERVICE CRASH for order {}", orderId);
+                    Runtime.getRuntime().halt(1);
+                }
+
                 paymentService.markCompleted(payment);
                 publish("payment.completed", event, "PAYMENT_COMPLETED");
-            } else {
+                return;
+            }  else {
                 log.error("Payment gateway error for order {}. Response: {}", orderId, response);
                 paymentService.markFailed(payment);
                 publish("payment.failed", event, "PAYMENT_FAILED");
@@ -100,7 +108,7 @@ public class OrderConsumer {
                 processRetry(payment, event);
             } else {
                 paymentService.markFailed(payment);
-                log.error("Payment gateway timeout for order {}. Max retries reached.", orderId);
+                log.error("Payment failed for order {} after {} attempts. Marking as FAILED.", event.orderId(), payment.getRetryCount());
                 // Send original order event to Dead Letter Topic
                 kafkaTemplate.send(
                         "order.created.DLT",
