@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/api/payments/charge",
+    "headers": {
+      "X-Test-Scenario": {
+        "equalTo": "success"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "transactionId": "TXN-1001",
+      "status": "SUCCESS"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
