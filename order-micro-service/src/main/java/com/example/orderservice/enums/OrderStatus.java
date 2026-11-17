@@ -8,5 +8,6 @@ public enum OrderStatus {
     INVENTORY_RESERVED,
     INVENTORY_FAILED,
     CONFIRMED,
-    CANCELLED
+    CANCELLED,
+    PAID
 }

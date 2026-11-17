@@ -12,7 +12,6 @@ public record OrderCreatedEvent(
         boolean smsNotifications,
         BigDecimal totalAmount,
         String productId,
-        String productCode,
         int quantity
 ) {
 }

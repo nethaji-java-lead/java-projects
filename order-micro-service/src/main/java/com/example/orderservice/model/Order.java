@@ -2,7 +2,8 @@ package com.example.orderservice.model;
 
 import com.example.orderservice.enums.OrderStatus;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,7 +16,8 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(name = "uk_order_number", columnNames = "order_number")
         }
 )
-@Data
+@Getter
+@Setter
 public class Order {
 
     @Id
@@ -25,8 +27,15 @@ public class Order {
     @Column(name = "order_number", nullable = false, unique = true)
     private String orderNumber;
 
-    @Column(name = "customer_id", nullable = false)
-    private Long customerId;
+    // User Relationship
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_id", nullable = false)
+    private User user;
+
+    // Product Relationship
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount;
@@ -43,12 +52,6 @@ public class Order {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    @Column(name = "product_id")
-    private String productId;
-
-    @Column(name = "product_code")
-    private String productCode;
 
     @Column(name = "quantity")
     private Integer quantity;

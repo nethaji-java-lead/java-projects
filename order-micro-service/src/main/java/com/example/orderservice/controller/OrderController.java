@@ -1,34 +1,27 @@
 package com.example.orderservice.controller;
 
 
+import com.example.orderservice.dto.ApiResponse;
 import com.example.orderservice.dto.OrderDTO;
 import com.example.orderservice.dto.OrderRequest;
-import com.example.orderservice.dto.ApiResponse;
-import com.example.orderservice.exception.OrderEventNotFoundException;
 import com.example.orderservice.exception.OrderException;
-import com.example.orderservice.model.OrderEvent;
 import com.example.orderservice.service.OrderService;
 import com.example.orderservice.service.OutboxPublisherService;
-import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
 @RequestMapping("/api")
+@RequiredArgsConstructor
 public class OrderController {
 
     private final OrderService orderService;
 
     private final OutboxPublisherService outboxPublisherService;
-
-    public OrderController(OrderService orderService, OutboxPublisherService outboxPublisherService) {
-        this.orderService = orderService;
-        this.outboxPublisherService = outboxPublisherService;
-    }
 
     @GetMapping("/public/hi")
     public ResponseEntity<String> sayHi()
@@ -38,17 +31,15 @@ public class OrderController {
 
     @PostMapping("/orders")
     public ResponseEntity<ApiResponse<OrderDTO>> createOrder(@RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @RequestBody OrderRequest request) {
+            @RequestBody OrderRequest request) {
 
         try {
-
-            if(idempotencyKey==null || idempotencyKey.isBlank()){
-                return ResponseEntity
-                        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(ApiResponse.failure(
-                                "Idempotency-Key is required as part of Request"
-                        ));
+            if(idempotencyKey==null || idempotencyKey.isBlank())
+            {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(ApiResponse.failure("Idempotency Key is required as part of Request"));
             }
+
             OrderDTO order = orderService.createOrder(request, idempotencyKey);
 
             return ResponseEntity
@@ -86,5 +77,12 @@ public class OrderController {
     public void publishPendingEvents()
     {
         outboxPublisherService.publishPendingEvents();
+    }
+
+    @PostMapping("/publish/{orderId}")
+    public void publishOrderCreatedEvent(@PathVariable Long orderId)
+    {
+        outboxPublisherService.publishOrderEvent(orderId);
+
     }
 }

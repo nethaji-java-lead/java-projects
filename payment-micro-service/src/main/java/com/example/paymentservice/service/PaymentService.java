@@ -34,14 +34,20 @@ public class PaymentService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markCompleted(Payment payment) {
-        payment.setStatus("COMPLETED");
+    public void markSuccess(Payment payment) {
+        payment.setStatus("SUCCESS");
         paymentRepository.saveAndFlush(payment);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailed(Payment payment) {
         payment.setStatus("FAILED");
+        paymentRepository.saveAndFlush(payment);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markUnknown(Payment payment) {
+        payment.setStatus("UNKNOWN");
         paymentRepository.saveAndFlush(payment);
     }
 

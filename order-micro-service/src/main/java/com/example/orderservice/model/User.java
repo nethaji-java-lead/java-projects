@@ -32,12 +32,4 @@ public class User {
 
     @Column(nullable = false)
     private String phone;
-
-    @Column(name = "email_notifications", nullable = false)
-    @Builder.Default
-    private boolean emailNotifications = true;
-
-    @Column(name = "sms_notifications", nullable = false)
-    @Builder.Default
-    private boolean smsNotifications = false;
 }

@@ -10,11 +10,14 @@ import com.example.orderservice.event.*;
 import com.example.orderservice.exception.OrderException;
 import com.example.orderservice.model.Order;
 import com.example.orderservice.model.OrderEvent;
+import com.example.orderservice.model.Product;
 import com.example.orderservice.model.User;
 import com.example.orderservice.repository.OrderEventRepository;
 import com.example.orderservice.repository.OrderRepository;
+import com.example.orderservice.repository.ProductRepository;
 import com.example.orderservice.repository.UserRepository;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,28 +34,19 @@ import static com.example.orderservice.constants.OrderServiceConstants.*;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository orderRepository;
-
+    private final OrderEventRepository orderEventRepository;
+    private final ProductRepository productRepository;
+    private final JsonMapper jsonMapper;
     private final UserRepository userRepository;
 
-    private final OrderEventRepository orderEventRepository;
-
-    private final JsonMapper jsonMapper;
-
-    private final KafkaTemplate<String, String> kafkaTemplate;
-
-    public OrderService(OrderRepository orderRepository, UserRepository userRepository, OrderEventRepository orderEventRepository, JsonMapper jsonMapper, KafkaTemplate<String, String> kafkaTemplate) {
-        this.orderRepository = orderRepository;
-        this.userRepository = userRepository;
-        this.orderEventRepository = orderEventRepository;
-        this.jsonMapper = jsonMapper;
-        this.kafkaTemplate = kafkaTemplate;
-    }
 
     @Transactional
     public OrderDTO createOrder(OrderRequest request, String idempotencyKey) {
+
         Order order = new Order();
 
         // 1. Check if request was already processed
@@ -62,13 +57,36 @@ public class OrderService {
             order =  existingOrder.get();
         } else {
             // 2. Create new order
-            order.setOrderNumber(generateOrderNumber());
-            order.setCustomerId(request.customerId());
-            order.setIdempotencyKey(idempotencyKey);
-            order.setProductId(request.productId());
-            order.setProductCode(request.productCode());
+            User user = userRepository.findById(request.customerId())
+                    .orElseThrow(() -> new OrderException("User not found"));
+
+            Product product = productRepository
+                    .findById(String.valueOf(request.productId()))
+                    .orElseThrow(() -> new OrderException("Product not found"));
+
+            if (request.quantity() == null || request.quantity() <= 0) {
+                throw new OrderException("Quantity must be greater than zero");
+            }
+
+            if (product.getInventoryCount() < request.quantity()) {
+                throw new OrderException("Insufficient inventory");
+            }
+
+            BigDecimal totalAmount = product.getPrice()
+                    .multiply(BigDecimal.valueOf(request.quantity()));
+
+            product.setInventoryCount(
+                    product.getInventoryCount() - request.quantity()
+            );
+
+
+            order.setUser(user);
+            order.setProduct(product);
             order.setQuantity(request.quantity());
-            order.setTotalAmount(request.totalAmount());
+            order.setTotalAmount(totalAmount);
+            order.setIdempotencyKey(idempotencyKey);
+            order.setOrderNumber(generateOrderNumber());
+            order.setStatus(OrderStatus.PAYMENT_PENDING);
         }
 
         order = orderRepository.save(order);
@@ -105,6 +123,8 @@ public class OrderService {
                             );
                             orderEvent.setStatus(EventStatus.PENDING);
 
+                            log.info("OrderEvent Publishing via Kafka: {}", orderEvent);
+
                             orderEventRepository.save(orderEvent);
                         }
                 );
@@ -112,33 +132,16 @@ public class OrderService {
 
     private OrderCreatedEvent createOrderCreatedEvent(Order order) {
 
-        /*Optional<User> optionalUser = userRepository.findById(order.getCustomerId());
-
-        User user = optionalUser.orElseThrow(() ->
-                new RuntimeException("User not found: " + order.getCustomerId()));*/
-
-
-        User user = User.builder()
-                .name("Test User")
-                .address("XX Street")
-                .shippingAddress("YY Street, City, Country")
-                .email("test@example.com")
-                .phone("1234567890")
-                .emailNotifications(true)
-                .smsNotifications(true)
-                .build();
-
         return new OrderCreatedEvent(
                 order.getId(),
                 order.getOrderNumber(),
-                order.getCustomerId(),
-                user.getEmail(),
-                user.getPhone(),
-                user.isEmailNotifications(),
-                user.isSmsNotifications(),
+                order.getUser().getUserId(),
+                order.getUser().getEmail(),
+                order.getUser().getPhone(),
+               true,
+                false,
                 order.getTotalAmount(),
-                order.getProductId(),
-                order.getProductCode(),
+                order.getProduct().getId(),
                 order.getQuantity()
         );
     }
@@ -160,63 +163,20 @@ public class OrderService {
                 .toUpperCase();
     }
 
-    private OrderDTO mapToOrderDTO(Order order)
-    {
-        return new OrderDTO(order.getId()
-                , order.getOrderNumber(), order.getCustomerId(), order.getTotalAmount(), order.getStatus()
-        , order.getCreatedAt(), order.getUpdatedAt());
+    private OrderDTO mapToOrderDTO(Order order) {
+        return new OrderDTO(
+                order.getId(),
+                order.getOrderNumber(),
+                order.getUser(),
+                order.getProduct(),
+                order.getQuantity(),
+                order.getTotalAmount(),
+                order.getStatus(),
+                order.getCreatedAt(),
+                order.getUpdatedAt()
+        );
     }
 
-    @KafkaListener(
-            topics = PAYMENT_COMPLETED_EVENT,
-            groupId = "order-service"
-    )
-    public void consumePaymentCompletedEvent(String message) {
-        try {
-            PaymentCompletedEvent event = jsonMapper.readValue(message, PaymentCompletedEvent.class);
-            Optional<Order> optionalOrder = orderRepository.findById(event.orderId());
-
-            if (optionalOrder.isPresent()) {
-                Order order = optionalOrder.get();
-                order.setStatus(OrderStatus.CONFIRMED);
-                orderRepository.save(order);
-            } else {
-                throw new OrderException("Order not found for ID: " + event.orderId());
-            }
-        } catch (Exception e) {
-            throw new OrderException("Failed to process payment.completed event", e);
-        }
-    }
-
-    @KafkaListener(
-            topics = PAYMENT_FAILED_EVENT,
-            groupId = "order-service"
-    )
-    public void consumePaymentFailedEvent(String message) {
-
-        try {
-
-            PaymentFailedEvent event =
-                    jsonMapper.readValue(message, PaymentFailedEvent.class);
-
-            Order order = orderRepository
-                    .findById(event.orderId())
-                    .orElseThrow(() ->
-                            new OrderException(
-                                    "Order not found: " + event.orderId()
-                            )
-                    );
-
-            order.setStatus(OrderStatus.PAYMENT_FAILED);
-
-            orderRepository.save(order);
-
-        } catch (Exception e) {
-            throw new OrderException(
-                    "Failed to process payment.failed event", e
-            );
-        }
-    }
 
     @KafkaListener(
             topics = INVENTORY_FAILED_EVENT,
