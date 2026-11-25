@@ -1,0 +1,31 @@
+
+services:
+  sftp:
+    image: atmoz/sftp:alpine
+    platform: linux/amd64
+    container_name: sftp-server
+    ports:
+      - "2222:22"
+    command: demo:demo:1001
+    volumes:
+      - sftp-data:/home/demo/upload
+    restart: unless-stopped
+
+  sftp-init:
+    image: alpine:latest
+    container_name: sftp-init
+    depends_on:
+      - sftp
+    volumes:
+      - sftp-data:/data
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /data/incoming /data/error /data/processed /data/pdf
+        chown -R 1001:1001 /data
+        chmod -R 755 /data
+    restart: "no"
+
+volumes:
+  sftp-data:
